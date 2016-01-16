@@ -934,14 +934,16 @@ void OBSBasic::OBSInit()
 	TimedCheckForUpdates();
 	loaded = true;
 
-	bool previewEnabled = config_get_bool(App()->GlobalConfig(),
+	previewEnabled = config_get_bool(App()->GlobalConfig(),
 			"BasicWindow", "PreviewEnabled");
-	if (!previewEnabled)
-		QMetaObject::invokeMethod(this, "TogglePreview",
-				Qt::QueuedConnection);
 
 	SetPreviewProgramMode(config_get_bool(App()->GlobalConfig(),
 				"BasicWindow", "PreviewProgramMode"));
+
+	if (!previewEnabled && !IsPreviewProgramMode())
+		QMetaObject::invokeMethod(this, "EnablePreviewDisplay",
+				Qt::QueuedConnection,
+				Q_ARG(bool, previewEnabled));
 
 #ifdef _WIN32
 	uint32_t winVer = GetWindowsVersion();
@@ -1163,8 +1165,6 @@ void OBSBasic::ClearHotkeys()
 
 OBSBasic::~OBSBasic()
 {
-	bool previewEnabled = obs_display_enabled(ui->preview->GetDisplay());
-
 	delete programOptions;
 	delete program;
 
@@ -2659,6 +2659,8 @@ void OBSBasic::CreateSourcePopupMenu(QListWidgetItem *item, bool preview)
 		action->setCheckable(true);
 		action->setChecked(
 				obs_display_enabled(ui->preview->GetDisplay()));
+		if (IsPreviewProgramMode())
+			action->setEnabled(false);
 
 		previewProjector = new QMenu(QTStr("PreviewProjector"));
 		AddProjectorMenuMonitors(previewProjector, this,
@@ -3668,12 +3670,17 @@ void OBSBasic::on_actionCenterToScreen_triggered()
 	obs_scene_enum_items(GetCurrentScene(), func, nullptr);
 }
 
+void OBSBasic::EnablePreviewDisplay(bool enable)
+{
+	obs_display_set_enabled(ui->preview->GetDisplay(), enable);
+	ui->preview->setVisible(enable);
+	ui->previewDisabledLabel->setVisible(!enable);
+}
+
 void OBSBasic::TogglePreview()
 {
-	bool enabled = !obs_display_enabled(ui->preview->GetDisplay());
-	obs_display_set_enabled(ui->preview->GetDisplay(), enabled);
-	ui->preview->setVisible(enabled);
-	ui->previewDisabledLabel->setVisible(!enabled);
+	previewEnabled = !previewEnabled;
+	EnablePreviewDisplay(previewEnabled);
 }
 
 void OBSBasic::Nudge(int dist, MoveDir dir)

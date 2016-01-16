@@ -485,6 +485,9 @@ void OBSBasic::SetPreviewProgramMode(bool enabled)
 	os_atomic_set_bool(&previewProgramMode, enabled);
 
 	if (IsPreviewProgramMode()) {
+		if (!previewEnabled)
+			EnablePreviewDisplay(true);
+
 		CreateProgramDisplay();
 		CreateProgramOptions();
 
@@ -526,6 +529,9 @@ void OBSBasic::SetPreviewProgramMode(bool enabled)
 			qt.layout = nullptr;
 			qt.button = nullptr;
 		}
+
+		if (!previewEnabled)
+			EnablePreviewDisplay(false);			
 	}
 }
 

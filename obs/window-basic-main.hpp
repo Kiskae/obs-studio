@@ -95,6 +95,7 @@ private:
 	bool loaded = false;
 	long disableSaving = 1;
 	bool projectChanged = false;
+	bool previewEnabled = true;
 
 	QPointer<QThread> updateCheckThread;
 	QPointer<QThread> logUploadThread;
@@ -460,6 +461,7 @@ private slots:
 	void OpenSceneFilters();
 	void OpenFilters();
 
+	void EnablePreviewDisplay(bool enable);
 	void TogglePreview();
 
 	void NudgeUp();

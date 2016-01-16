@@ -1103,7 +1103,8 @@ obs_sceneitem_t *obs_scene_add(obs_scene_t *scene, obs_source_t *source)
 
 	full_unlock(scene);
 
-	init_hotkeys(scene, item, obs_source_get_name(source));
+	if (!scene->source->context.private)
+		init_hotkeys(scene, item, obs_source_get_name(source));
 
 	calldata_set_ptr(&params, "scene", scene);
 	calldata_set_ptr(&params, "item", item);

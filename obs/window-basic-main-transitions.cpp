@@ -537,13 +537,13 @@ void OBSBasic::ClearQuickTransitions()
 		if (!item)
 			break;
 
-		QLayout *layout = item->layout();
-		if (!layout)
+		QWidget *widget = item->widget();
+		if (!widget)
 			continue;
 
-		int id = layout->property("id").toInt();
+		int id = widget->property("id").toInt();
 		if (id != 0) {
-			DeleteLayout(layout);
+			delete widget;
 			idx--;
 		}
 	}
@@ -572,8 +572,10 @@ void OBSBasic::QuickTransitionChange()
 	int trIdx = sender()->property("transition_index").toInt();
 	QuickTransition *qt = GetQuickTransition(id);
 
-	qt->source = GetTransitionComboItem(ui->transitions, trIdx);
-	ResetQuickTransitionText(qt);
+	if (qt) {
+		qt->source = GetTransitionComboItem(ui->transitions, trIdx);
+		ResetQuickTransitionText(qt);
+	}
 }
 
 void OBSBasic::QuickTransitionChangeDuration(int value)
@@ -581,8 +583,10 @@ void OBSBasic::QuickTransitionChangeDuration(int value)
 	int id = sender()->property("id").toInt();
 	QuickTransition *qt = GetQuickTransition(id);
 
-	qt->duration = value;
-	ResetQuickTransitionText(qt);
+	if (qt) {
+		qt->duration = value;
+		ResetQuickTransitionText(qt);
+	}
 }
 
 void OBSBasic::QuickTransitionRemoveClicked()

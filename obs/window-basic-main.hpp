@@ -60,7 +60,6 @@ enum class QtDataRole {
 };
 
 struct QuickTransition {
-	QLayout *layout = nullptr;
 	QPushButton *button = nullptr;
 	OBSSource source;
 	int duration = 0;
@@ -208,6 +207,8 @@ private:
 
 	void SaveProjectNow();
 
+	QListWidgetItem *GetTopSelectedSourceItem();
+
 	obs_hotkey_pair_id streamingHotkeys, recordingHotkeys;
 	obs_hotkey_id forceStreamingStopHotkey;
 
@@ -230,10 +231,12 @@ private:
 	void CreateDefaultQuickTransitions();
 
 	QuickTransition *GetQuickTransition(int id);
-	int GetQuickTransitionIdx(int id);	
+	int GetQuickTransitionIdx(int id);
+	QMenu *CreateTransitionMenu(QWidget *parent, QuickTransition *qt);
 	void ClearQuickTransitions();
 	void QuickTransitionClicked();
-	void QuickTransitionResetClicked();
+	void QuickTransitionChange();
+	void QuickTransitionChangeDuration(int value);
 	void QuickTransitionRemoveClicked();
 
 	void SetPreviewProgramMode(bool enabled);
@@ -245,7 +248,10 @@ private:
 	std::vector<QuickTransition> quickTransitions;
 	QPointer<QWidget> programOptions;
 	QPointer<OBSQTDisplay> program;
-	OBSSource lastScene;
+	OBSWeakSource lastScene;
+	OBSWeakSource programScene;
+	bool editPropertiesMode = false;
+	bool swapScenesMode = false;
 	volatile bool previewProgramMode = false;
 
 	int   programX = 0,  programY = 0;

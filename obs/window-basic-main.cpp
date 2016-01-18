@@ -246,8 +246,8 @@ static void SaveAudioDevice(const char *name, int channel, obs_data_t *parent,
 }
 
 static obs_data_t *GenerateSaveData(obs_data_array_t *sceneOrder,
-		obs_data_array_t *quickTransitionData,
-		int transitionDuration, OBSScene &scene)
+		obs_data_array_t *quickTransitionData, int transitionDuration,
+		OBSScene &scene, OBSSource &curProgramScene)
 {
 	obs_data_t *saveData = obs_data_create();
 
@@ -276,11 +276,13 @@ static obs_data_t *GenerateSaveData(obs_data_array_t *sceneOrder,
 	obs_source_t *transition = obs_get_output_source(0);
 	obs_source_t *currentScene = obs_scene_get_source(scene);
 	const char   *sceneName   = obs_source_get_name(currentScene);
+	const char   *programName = obs_source_get_name(curProgramScene);
 
 	const char *sceneCollection = config_get_string(App()->GlobalConfig(),
 			"Basic", "SceneCollection");
 
 	obs_data_set_string(saveData, "current_scene", sceneName);
+	obs_data_set_string(saveData, "current_program_scene", programName);
 	obs_data_set_array(saveData, "scene_order", sceneOrder);
 	obs_data_set_string(saveData, "name", sceneCollection);
 	obs_data_set_array(saveData, "sources", sourcesArray);
@@ -345,10 +347,15 @@ obs_data_array_t *OBSBasic::SaveSceneListOrder()
 void OBSBasic::Save(const char *file)
 {
 	OBSScene scene = GetCurrentScene();
+	OBSSource curProgramScene = OBSGetStrongRef(programScene);
+	if (!curProgramScene)
+		curProgramScene = obs_scene_get_source(scene);
+
 	obs_data_array_t *sceneOrder = SaveSceneListOrder();
 	obs_data_array_t *quickTrData = SaveQuickTransitions();
 	obs_data_t *saveData  = GenerateSaveData(sceneOrder, quickTrData,
-			ui->transitionDuration->value(), scene);
+			ui->transitionDuration->value(),
+			scene, curProgramScene);
 
 	if (!obs_data_save_json_safe(saveData, file, "tmp", "bak"))
 		blog(LOG_ERROR, "Could not save scene data to %s", file);
@@ -483,6 +490,8 @@ void OBSBasic::Load(const char *file)
 	obs_data_array_t *sources    = obs_data_get_array(data, "sources");
 	const char       *sceneName = obs_data_get_string(data,
 			"current_scene");
+	const char       *programSceneName = obs_data_get_string(data,
+			"current_program_scene");
 	const char       *transitionName = obs_data_get_string(data,
 			"current_transition");
 
@@ -500,6 +509,7 @@ void OBSBasic::Load(const char *file)
 
 	const char       *name = obs_data_get_string(data, "name");
 	obs_source_t     *curScene;
+	obs_source_t     *curProgramScene;
 	obs_source_t     *curTransition;
 
 	if (!name || !*name)
@@ -524,10 +534,17 @@ void OBSBasic::Load(const char *file)
 	SetTransition(curTransition);
 
 	curScene = obs_get_source_by_name(sceneName);
+	curProgramScene = obs_get_source_by_name(programSceneName);
+	if (!curProgramScene) {
+		curProgramScene = curScene;
+		obs_source_addref(curScene);
+	}
+
 	SetCurrentScene(curScene, true);
 	if (IsPreviewProgramMode())
-		TransitionToScene(curScene, true);
+		TransitionToScene(curProgramScene, true);
 	obs_source_release(curScene);
+	obs_source_release(curProgramScene);
 
 	obs_data_array_release(sources);
 	obs_data_array_release(sceneOrder);
@@ -924,6 +941,13 @@ void OBSBasic::OBSInit()
 
 	InitPrimitives();
 
+	swapScenesMode = config_get_bool(App()->GlobalConfig(),
+				"BasicWindow", "SwapScenesMode");
+	editPropertiesMode = config_get_bool(App()->GlobalConfig(),
+				"BasicWindow", "EditPropertiesMode");
+	SetPreviewProgramMode(config_get_bool(App()->GlobalConfig(),
+				"BasicWindow", "PreviewProgramMode"));
+
 	{
 		ProfileScope("OBSBasic::Load");
 		disableSaving--;
@@ -936,9 +960,6 @@ void OBSBasic::OBSInit()
 
 	previewEnabled = config_get_bool(App()->GlobalConfig(),
 			"BasicWindow", "PreviewEnabled");
-
-	SetPreviewProgramMode(config_get_bool(App()->GlobalConfig(),
-				"BasicWindow", "PreviewProgramMode"));
 
 	if (!previewEnabled && !IsPreviewProgramMode())
 		QMetaObject::invokeMethod(this, "EnablePreviewDisplay",
@@ -1236,6 +1257,10 @@ OBSBasic::~OBSBasic()
 	config_set_bool(App()->GlobalConfig(), "BasicWindow", "PreviewEnabled",
 			previewEnabled);
 	config_set_bool(App()->GlobalConfig(), "BasicWindow",
+			"SwapScenesMode", swapScenesMode);
+	config_set_bool(App()->GlobalConfig(), "BasicWindow",
+			"EditPropertiesMode", editPropertiesMode);
+	config_set_bool(App()->GlobalConfig(), "BasicWindow",
 			"PreviewProgramMode", IsPreviewProgramMode());
 	config_save_safe(App()->GlobalConfig(), "tmp", nullptr);
 
@@ -1314,7 +1339,7 @@ OBSSceneItem OBSBasic::GetSceneItem(QListWidgetItem *item)
 
 OBSSceneItem OBSBasic::GetCurrentSceneItem()
 {
-	return GetSceneItem(ui->sources->currentItem());
+	return GetSceneItem(GetTopSelectedSourceItem());
 }
 
 void OBSBasic::UpdateSources(OBSScene scene)
@@ -1554,6 +1579,8 @@ void OBSBasic::SelectSceneItem(OBSScene scene, OBSSceneItem item, bool select)
 			continue;
 
 		witem->setSelected(select);
+		blog(LOG_DEBUG, "selected item %llx = %s", witem,
+				select ? "true" : "false");
 		break;
 	}
 }
@@ -2307,6 +2334,7 @@ void OBSBasic::ClearSceneData()
 	obs_set_output_source(4, nullptr);
 	obs_set_output_source(5, nullptr);
 	lastScene = nullptr;
+	programScene = nullptr;
 
 	auto cb = [](void *unused, obs_source_t *source)
 	{
@@ -2633,7 +2661,7 @@ void OBSBasic::on_sources_itemSelectionChanged()
 
 void OBSBasic::EditSceneItemName()
 {
-	QListWidgetItem *item = ui->sources->currentItem();
+	QListWidgetItem *item = GetTopSelectedSourceItem();
 	Qt::ItemFlags flags   = item->flags();
 	OBSSceneItem sceneItem= GetOBSRef<OBSSceneItem>(item);
 	obs_source_t *source  = obs_sceneitem_get_source(sceneItem);
@@ -3342,9 +3370,18 @@ void OBSBasic::on_actionShowProfileFolder_triggered()
 	QDesktopServices::openUrl(QUrl::fromLocalFile(path));
 }
 
+QListWidgetItem *OBSBasic::GetTopSelectedSourceItem()
+{
+	QList<QListWidgetItem*> selectedItems = ui->sources->selectedItems();
+	QListWidgetItem *topItem = nullptr;
+	if (selectedItems.size() != 0)
+		topItem = selectedItems[0];
+	return topItem;
+}
+
 void OBSBasic::on_preview_customContextMenuRequested(const QPoint &pos)
 {
-	CreateSourcePopupMenu(ui->sources->currentItem(), true);
+	CreateSourcePopupMenu(GetTopSelectedSourceItem(), true);
 
 	UNUSED_PARAMETER(pos);
 }

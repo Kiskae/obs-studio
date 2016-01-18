@@ -118,6 +118,7 @@ set(obs_SOURCES
 	window-remux.cpp
 	properties-view.cpp
 	focus-list.cpp
+	menu-button.cpp
 	double-slider.cpp
 	volume-control.cpp
 	adv-audio-control.cpp
@@ -160,6 +161,7 @@ set(obs_HEADERS
 	display-helpers.hpp
 	double-slider.hpp
 	focus-list.hpp
+	menu-button.hpp
 	mute-checkbox.hpp
 	volume-control.hpp
 	adv-audio-control.hpp

@@ -672,6 +672,10 @@ void OBSBasic::SetPreviewProgramMode(bool enabled)
 		ui->previewLayout->addWidget(programOptions);
 		ui->previewLayout->addWidget(program);
 		program->show();
+
+		blog(LOG_INFO, "Switched to Preview/Program mode");
+		blog(LOG_INFO, "-----------------------------"
+				"-------------------");
 	} else {
 		OBSSource actualProgramScene = OBSGetStrongRef(programScene);
 		if (!actualProgramScene)
@@ -697,7 +701,11 @@ void OBSBasic::SetPreviewProgramMode(bool enabled)
 			qt.button = nullptr;
 
 		if (!previewEnabled)
-			EnablePreviewDisplay(false);			
+			EnablePreviewDisplay(false);
+
+		blog(LOG_INFO, "Switched to regular Preview mode");
+		blog(LOG_INFO, "-----------------------------"
+				"-------------------");
 	}
 }
 

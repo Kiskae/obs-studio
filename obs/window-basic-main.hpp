@@ -62,6 +62,7 @@ enum class QtDataRole {
 struct QuickTransition {
 	QPushButton *button = nullptr;
 	OBSSource source;
+	obs_hotkey_id hotkey = 0;
 	int duration = 0;
 	int id = 0;
 
@@ -226,6 +227,8 @@ private:
 	void CreateProgramOptions();
 	void AddQuickTransitionId(int id);
 	void AddQuickTransition();
+	void AddQuickTransitionHotkey(QuickTransition *qt);
+	void RemoveQuickTransitionHotkey(QuickTransition *qt);
 	void LoadQuickTransitions(obs_data_array_t *array);
 	obs_data_array_t *SaveQuickTransitions();
 	void RefreshQuickTransitions();
@@ -255,6 +258,9 @@ private:
 	bool editPropertiesMode = false;
 	bool swapScenesMode = false;
 	volatile bool previewProgramMode = false;
+	obs_hotkey_id togglePreviewProgramHotkey = 0;
+	obs_hotkey_id transitionHotkey = 0;
+	int quickTransitionIdCounter = 1;
 
 	int   programX = 0,  programY = 0;
 	int   programCX = 0, programCY = 0;
@@ -305,7 +311,9 @@ private slots:
 
 	void ProcessHotkey(obs_hotkey_id id, bool pressed);
 
+	void TransitionClicked();
 	void TransitionStopped();
+	void TriggerQuickTransition(int id);
 
 private:
 	/* OBS Callbacks */

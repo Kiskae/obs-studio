@@ -1173,8 +1173,36 @@ void OBSBasic::CreateHotkeys()
 			this, this);
 	LoadHotkeyPair(recordingHotkeys,
 			"OBSBasic.StartRecording", "OBSBasic.StopRecording");
-
 #undef MAKE_CALLBACK
+
+	auto togglePreviewProgram = [] (void *data, obs_hotkey_id,
+			obs_hotkey_t*, bool pressed)
+	{
+		if (pressed)
+			QMetaObject::invokeMethod(static_cast<OBSBasic*>(data),
+					"on_modeSwitch_clicked",
+					Qt::QueuedConnection);
+	};
+
+	togglePreviewProgramHotkey = obs_hotkey_register_frontend(
+			"OBSBasic.TogglePreviewProgram",
+			Str("Basic.TogglePreviewProgramMode"),
+			togglePreviewProgram, this);
+	LoadHotkey(togglePreviewProgramHotkey, "OBSBasic.TogglePreviewProgram");
+
+	auto transition = [] (void *data, obs_hotkey_id, obs_hotkey_t*,
+			bool pressed)
+	{
+		if (pressed)
+			QMetaObject::invokeMethod(static_cast<OBSBasic*>(data),
+					"TransitionClicked",
+					Qt::QueuedConnection);
+	};
+
+	transitionHotkey = obs_hotkey_register_frontend(
+			"OBSBasic.Transition",
+			Str("Transition"), transition, this);
+	LoadHotkey(transitionHotkey, "OBSBasic.Transition");
 }
 
 void OBSBasic::ClearHotkeys()
@@ -1182,6 +1210,8 @@ void OBSBasic::ClearHotkeys()
 	obs_hotkey_pair_unregister(streamingHotkeys);
 	obs_hotkey_pair_unregister(recordingHotkeys);
 	obs_hotkey_unregister(forceStreamingStopHotkey);
+	obs_hotkey_unregister(togglePreviewProgramHotkey);
+	obs_hotkey_unregister(transitionHotkey);
 }
 
 OBSBasic::~OBSBasic()

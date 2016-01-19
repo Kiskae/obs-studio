@@ -1579,8 +1579,6 @@ void OBSBasic::SelectSceneItem(OBSScene scene, OBSSceneItem item, bool select)
 			continue;
 
 		witem->setSelected(select);
-		blog(LOG_DEBUG, "selected item %llx = %s", witem,
-				select ? "true" : "false");
 		break;
 	}
 }

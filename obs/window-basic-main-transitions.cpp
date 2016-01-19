@@ -673,8 +673,12 @@ void OBSBasic::SetPreviewProgramMode(bool enabled)
 		ui->previewLayout->addWidget(program);
 		program->show();
 	} else {
-		OBSScene curScene = GetCurrentScene();
-		TransitionToScene(curScene);
+		OBSSource actualProgramScene = OBSGetStrongRef(programScene);
+		if (!actualProgramScene)
+			actualProgramScene = GetCurrentSceneSource();
+		else
+			SetCurrentScene(actualProgramScene);
+		TransitionToScene(actualProgramScene);
 
 		delete programOptions;
 		delete program;
@@ -687,6 +691,7 @@ void OBSBasic::SetPreviewProgramMode(bool enabled)
 		}
 
 		programScene = nullptr;
+		swapScene = nullptr;
 
 		for (QuickTransition &qt : quickTransitions)
 			qt.button = nullptr;

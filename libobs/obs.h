@@ -1013,7 +1013,7 @@ enum obs_transition_mode {
 	OBS_TRANSITION_MODE_AUTO,
 };
 
-EXPORT void obs_transition_start(obs_source_t *transition,
+EXPORT bool obs_transition_start(obs_source_t *transition,
 		enum obs_transition_mode mode, uint32_t duration_ms,
 		obs_source_t *dest);
 

@@ -333,17 +333,16 @@ static inline bool transition_active(obs_source_t *transition)
 	       transition->transitioning_video;
 }
 
-void obs_transition_start(obs_source_t *transition,
+bool obs_transition_start(obs_source_t *transition,
 		enum obs_transition_mode mode, uint32_t duration_ms,
 		obs_source_t *dest)
 {
-	struct calldata cd = {0};
 	bool active;
 	bool same_as_source;
 	bool same_as_dest;
 
 	if (!transition_valid(transition, "obs_transition_start"))
-		return;
+		return false;
 
 	lock_transition(transition);
 	same_as_source = dest == transition->transition_sources[0];
@@ -352,7 +351,7 @@ void obs_transition_start(obs_source_t *transition,
 	unlock_transition(transition);
 
 	if (same_as_source && !active)
-		return;
+		return false;
 
 	if (transition->transition_use_fixed_duration)
 		duration_ms = transition->transition_fixed_duration;
@@ -366,17 +365,12 @@ void obs_transition_start(obs_source_t *transition,
 	set_source(transition, OBS_TRANSITION_SOURCE_B, dest,
 			activate_transition);
 
-	calldata_set_ptr(&cd, "source", transition);
-	calldata_set_ptr(&cd, "target", dest);
-
-	signal_handler_signal(transition->context.signals, "transition_start",
-			&cd);
-	signal_handler_signal(obs->signals, "source_transition_start", &cd);
-
-	calldata_free(&cd);
+	obs_source_dosignal(transition, "source_transition_start",
+			"transition_start");
 
 	/* TODO: Add mode */
 	UNUSED_PARAMETER(mode);
+	return true;
 }
 
 void obs_transition_set(obs_source_t *transition, obs_source_t *source)
@@ -640,6 +634,7 @@ void obs_transition_video_render(obs_source_t *transition,
 {
 	struct transition_state state;
 	bool locked = false;
+	bool stopped = false;
 	float t;
 
 	if (!transition_valid(transition, "obs_transition_video_render"))
@@ -651,8 +646,10 @@ void obs_transition_video_render(obs_source_t *transition,
 
 	if (t >= 1.0f && transition->transitioning_video) {
 		transition->transitioning_video = false;
-		if (!transition->transitioning_audio)
+		if (!transition->transitioning_audio) {
 			obs_transition_stop(transition);
+			stopped = true;
+		}
 	}
 	copy_transition_state(transition, &state);
 
@@ -693,6 +690,10 @@ void obs_transition_video_render(obs_source_t *transition,
 
 	obs_source_release(state.s[0]);
 	obs_source_release(state.s[1]);
+
+	if (stopped)
+		obs_source_dosignal(transition, "source_transition_stop",
+				"transition_stop");
 }
 
 static inline float get_sample_time(obs_source_t *transition,
@@ -770,11 +771,15 @@ static inline uint64_t calc_min_ts(obs_source_t *sources[2])
 	(MAX_AUDIO_MIXES * MAX_AUDIO_CHANNELS * \
 	 AUDIO_OUTPUT_FRAMES * sizeof(float))
 
-static inline void stop_audio(obs_source_t *transition)
+static inline bool stop_audio(obs_source_t *transition)
 {
 	transition->transitioning_audio = false;
-	if (!transition->transitioning_video)
+	if (!transition->transitioning_video) {
 		obs_transition_stop(transition);
+		return true;
+	}
+
+	return false;
 }
 
 bool obs_transition_audio_render(obs_source_t *transition,
@@ -785,6 +790,7 @@ bool obs_transition_audio_render(obs_source_t *transition,
 {
 	obs_source_t *sources[2];
 	struct transition_state state = {0};
+	bool stopped = false;
 	uint64_t min_ts;
 	float t;
 
@@ -802,7 +808,7 @@ bool obs_transition_audio_render(obs_source_t *transition,
 		t = calc_time(transition, min_ts);
 
 		if (t >= 1.0f && transition->transitioning_audio)
-			stop_audio(transition);
+			stopped = stop_audio(transition);
 
 		sources[0] = transition->transition_sources[0];
 		sources[1] = transition->transition_sources[1];
@@ -811,7 +817,7 @@ bool obs_transition_audio_render(obs_source_t *transition,
 			copy_transition_state(transition, &state);
 
 	} else if (transition->transitioning_audio) {
-		stop_audio(transition);
+		stopped = stop_audio(transition);
 	}
 
 	unlock_transition(transition);
@@ -835,6 +841,10 @@ bool obs_transition_audio_render(obs_source_t *transition,
 		obs_source_release(state.s[0]);
 		obs_source_release(state.s[1]);
 	}
+
+	if (stopped)
+		obs_source_dosignal(transition, "source_transition_stop",
+				"transition_stop");
 
 	*ts_out = min_ts;
 	return !!min_ts;

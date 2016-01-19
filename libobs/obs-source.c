@@ -69,7 +69,7 @@ static const char *source_signals[] = {
 	"void filter_add(ptr source, ptr filter)",
 	"void filter_remove(ptr source, ptr filter)",
 	"void reorder_filters(ptr source)",
-	"void transition_start(ptr source, ptr target)",
+	"void transition_start(ptr source)",
 	"void transition_stop(ptr source)",
 	NULL
 };

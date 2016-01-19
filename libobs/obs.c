@@ -587,7 +587,7 @@ static const char *obs_signals[] = {
 	"void source_volume(ptr source, in out float volume)",
 	"void source_volume_level(ptr source, float level, float magnitude, "
 		"float peak)",
-	"void source_transition_start(ptr source, ptr target)",
+	"void source_transition_start(ptr source)",
 	"void source_transition_stop(ptr source)",
 
 	"void channel_change(int channel, in out ptr source, ptr prev_source)",

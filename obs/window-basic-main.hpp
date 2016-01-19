@@ -213,6 +213,7 @@ private:
 	obs_hotkey_id forceStreamingStopHotkey;
 
 	void InitDefaultTransitions();
+	void InitTransition(obs_source_t *transition);
 	void TransitionToScene(obs_scene_t *scene, bool force = false);
 	void TransitionToScene(obs_source_t *scene, bool force = false);
 	obs_source_t *FindTransition(const char *name);
@@ -249,6 +250,7 @@ private:
 	QPointer<QWidget> programOptions;
 	QPointer<OBSQTDisplay> program;
 	OBSWeakSource lastScene;
+	OBSWeakSource swapScene;
 	OBSWeakSource programScene;
 	bool editPropertiesMode = false;
 	bool swapScenesMode = false;
@@ -302,6 +304,8 @@ private slots:
 	void ReorderSources(OBSScene scene);
 
 	void ProcessHotkey(obs_hotkey_id id, bool pressed);
+
+	void TransitionStopped();
 
 private:
 	/* OBS Callbacks */

@@ -335,6 +335,8 @@ bool OBSApp::InitGlobalConfigDefaults()
 			true);
 	config_set_default_bool(globalConfig, "BasicWindow",
 			"PreviewProgramMode", false);
+	config_set_default_bool(globalConfig, "BasicWindow",
+			"SwapScenesMode", true);
 	return true;
 }
 

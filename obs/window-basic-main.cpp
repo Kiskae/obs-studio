@@ -2334,6 +2334,7 @@ void OBSBasic::ClearSceneData()
 	obs_set_output_source(4, nullptr);
 	obs_set_output_source(5, nullptr);
 	lastScene = nullptr;
+	swapScene = nullptr;
 	programScene = nullptr;
 
 	auto cb = [](void *unused, obs_source_t *source)

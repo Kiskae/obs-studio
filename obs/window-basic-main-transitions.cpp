@@ -45,6 +45,7 @@ void OBSBasic::InitDefaultTransitions()
 
 			obs_source_t *tr = obs_source_create_private(
 					id, name, NULL);
+			InitTransition(tr);
 			transitions.emplace_back(tr);
 
 			if (strcmp(id, "fade_transition") == 0)
@@ -58,6 +59,19 @@ void OBSBasic::InitDefaultTransitions()
 		ui->transitions->addItem(QT_UTF8(obs_source_get_name(tr)),
 				QVariant::fromValue(OBSSource(tr)));
 	}
+}
+
+void OBSBasic::InitTransition(obs_source_t *transition)
+{
+	auto onTransitionStop = [] (void *data, calldata_t*) {
+		OBSBasic *window = (OBSBasic*)data;
+		QMetaObject::invokeMethod(window, "TransitionStopped",
+				Qt::QueuedConnection);
+	};
+
+	signal_handler_t *handler = obs_source_get_signal_handler(transition);
+	signal_handler_connect(handler, "transition_stop",
+			onTransitionStop, this);
 }
 
 static inline OBSSource GetTransitionComboItem(QComboBox *combo, int idx)
@@ -129,6 +143,17 @@ void OBSBasic::TransitionToScene(obs_scene_t *scene, bool force)
 	TransitionToScene(source, force);
 }
 
+void OBSBasic::TransitionStopped()
+{
+	if (swapScenesMode) {
+		OBSSource scene = OBSGetStrongRef(swapScene);
+		if (scene)
+			SetCurrentScene(scene);
+	}
+
+	swapScene = nullptr;
+}
+
 void OBSBasic::TransitionToScene(obs_source_t *source, bool force)
 {
 	obs_scene_t *scene = obs_scene_from_source(source);
@@ -141,6 +166,13 @@ void OBSBasic::TransitionToScene(obs_source_t *source, bool force)
 	if (usingPreviewProgram) {
 		lastProgramScene = programScene;
 		programScene = OBSGetWeakRef(source);
+
+		if (swapScenesMode && !force) {
+			OBSSource newScene = OBSGetStrongRef(lastProgramScene);
+
+			if (newScene && newScene != GetCurrentSceneSource())
+				swapScene = lastProgramScene;
+		}
 	}
 
 	if (usingPreviewProgram) {
@@ -159,18 +191,10 @@ void OBSBasic::TransitionToScene(obs_source_t *source, bool force)
 		obs_transition_start(transition, OBS_TRANSITION_MODE_AUTO,
 				ui->transitionDuration->value(), source);
 
-	obs_source_release(transition);
-
-	if (usingPreviewProgram) {
+	if (usingPreviewProgram)
 		obs_scene_release(scene);
 
-		if (swapScenesMode && !force) {
-			OBSSource newScene = OBSGetStrongRef(lastProgramScene);
-
-			if (newScene && newScene != GetCurrentSceneSource())
-				SetCurrentScene(newScene);
-		}
-	}
+	obs_source_release(transition);
 }
 
 static inline void SetComboTransition(QComboBox *combo, obs_source_t *tr)

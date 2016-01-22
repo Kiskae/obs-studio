@@ -635,6 +635,7 @@ void obs_transition_video_render(obs_source_t *transition,
 	struct transition_state state;
 	bool locked = false;
 	bool stopped = false;
+	bool video_stopped = false;
 	float t;
 
 	if (!transition_valid(transition, "obs_transition_video_render"))
@@ -646,6 +647,8 @@ void obs_transition_video_render(obs_source_t *transition,
 
 	if (t >= 1.0f && transition->transitioning_video) {
 		transition->transitioning_video = false;
+		video_stopped = true;
+
 		if (!transition->transitioning_audio) {
 			obs_transition_stop(transition);
 			stopped = true;
@@ -691,6 +694,9 @@ void obs_transition_video_render(obs_source_t *transition,
 	obs_source_release(state.s[0]);
 	obs_source_release(state.s[1]);
 
+	if (video_stopped)
+		obs_source_dosignal(transition, "source_transition_video_stop",
+				"transition_video_stop");
 	if (stopped)
 		obs_source_dosignal(transition, "source_transition_stop",
 				"transition_stop");

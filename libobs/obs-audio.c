@@ -24,7 +24,7 @@ struct ts_info {
 };
 
 #define DEBUG_AUDIO 0
-#define MAX_BUFFERING_TICKS 500
+#define MAX_BUFFERING_TICKS 80
 
 static void push_audio_tree(obs_source_t *parent, obs_source_t *source, void *p)
 {
@@ -189,12 +189,14 @@ static void add_audio_buffering(struct obs_core_audio *audio,
 		blog(LOG_WARNING, "Max audio buffering reached!");
 	}
 
-	blog(LOG_DEBUG, "adding %d ticks of buffering, total buffering is"
-			" now %d: min_ts (%"PRIu64") < start timestamp "
-			"(%"PRIu64")",
-			ticks, audio->total_buffering_ticks, min_ts, ts->start);
+	blog(LOG_INFO, "adding %d ticks of buffering, total buffering is "
+			"now %d", ticks, audio->total_buffering_ticks);
+#if DEBUG_AUDIO == 1
+	blog(LOG_DEBUG, "min_ts (%"PRIu64") < start timestamp "
+			"(%"PRIu64")", min_ts, ts->start);
 	blog(LOG_DEBUG, "old buffered ts: %"PRIu64"-%"PRIu64,
 			ts->start, ts->end);
+#endif
 
 	new_ts.start = audio->buffered_ts - audio_frames_to_ns(sample_rate,
 			audio->buffering_wait_ticks * AUDIO_OUTPUT_FRAMES);
@@ -217,6 +219,78 @@ static void add_audio_buffering(struct obs_core_audio *audio,
 	}
 
 	*ts = new_ts;
+}
+
+static bool audio_buffer_insuffient(struct obs_source *source,
+		size_t sample_rate, uint64_t min_ts)
+{
+	size_t total_floats = AUDIO_OUTPUT_FRAMES;
+	size_t size;
+
+	if (source->info.audio_render || source->audio_pending ||
+	    !source->audio_ts) {
+		return false;
+	}
+
+	if (source->audio_ts != min_ts &&
+	    source->audio_ts != (min_ts - 1)) {
+		size_t start_point = convert_time_to_frames(sample_rate,
+				source->audio_ts - min_ts);
+		if (start_point >= AUDIO_OUTPUT_FRAMES)
+			return false;
+
+		total_floats -= start_point;
+	}
+
+	size = total_floats * sizeof(float);
+
+	if (source->audio_input_buf[0].size < size) {
+		source->audio_pending = true;
+		source->audio_ts = 0;
+		source->timing_adjust = 0;
+		source->timing_set = false;
+		source->next_audio_ts_min = 0;
+		source->next_audio_sys_ts_min = 0;
+		return true;
+	}
+
+	return false;
+}
+
+static inline void find_min_ts(struct obs_core_data *data,
+		uint64_t *min_ts)
+{
+	struct obs_source *source = data->first_audio_source;
+	while (source) {
+		if (!source->audio_pending && source->audio_ts &&
+				source->audio_ts < *min_ts)
+			*min_ts = source->audio_ts;
+
+		source = (struct obs_source*)source->next_audio_source;
+	}
+}
+
+static inline bool mark_invalid_sources(struct obs_core_data *data,
+		size_t sample_rate, uint64_t min_ts)
+{
+	bool recalculate = false;
+
+	struct obs_source *source = data->first_audio_source;
+	while (source) {
+		recalculate |= audio_buffer_insuffient(source, sample_rate,
+				min_ts);
+		source = (struct obs_source*)source->next_audio_source;
+	}
+
+	return recalculate;
+}
+
+static inline void calc_min_ts(struct obs_core_data *data,
+		size_t sample_rate, uint64_t *min_ts)
+{
+	find_min_ts(data, min_ts);
+	if (mark_invalid_sources(data, sample_rate, *min_ts))
+		find_min_ts(data, min_ts);
 }
 
 static inline void release_audio_sources(struct obs_core_audio *audio)
@@ -276,16 +350,7 @@ bool audio_callback(void *param,
 	/* ------------------------------------------------ */
 	/* get minimum audio timestamp */
 	pthread_mutex_lock(&data->audio_sources_mutex);
-
-	source = data->first_audio_source;
-	while (source) {
-		if (!source->audio_pending && source->audio_ts &&
-				source->audio_ts < min_ts)
-			min_ts = source->audio_ts;
-
-		source = (struct obs_source*)source->next_audio_source;
-	}
-
+	calc_min_ts(data, sample_rate, &min_ts);
 	pthread_mutex_unlock(&data->audio_sources_mutex);
 
 	/* ------------------------------------------------ */

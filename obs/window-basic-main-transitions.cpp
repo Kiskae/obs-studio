@@ -126,7 +126,7 @@ void OBSBasic::InitTransition(obs_source_t *transition)
 	};
 
 	signal_handler_t *handler = obs_source_get_signal_handler(transition);
-	signal_handler_connect(handler, "transition_stop",
+	signal_handler_connect(handler, "transition_video_stop",
 			onTransitionStop, this);
 }
 
@@ -167,7 +167,7 @@ void OBSBasic::LoadQuickTransitions(obs_data_array_t *array)
 			if (quickTransitionIdCounter <= id)
 				quickTransitionIdCounter = id + 1;
 
-			int idx = quickTransitions.size() - 1;
+			int idx = (int)quickTransitions.size() - 1;
 			AddQuickTransitionHotkey(&quickTransitions[idx]);
 			obs_hotkey_load(quickTransitions[idx].hotkey, hotkeys);
 		}
@@ -608,7 +608,7 @@ void OBSBasic::AddQuickTransitionId(int id)
 	QVBoxLayout *programLayout =
 		reinterpret_cast<QVBoxLayout*>(programOptions->layout());
 
-	size_t idx = 3;
+	int idx = 3;
 	for (;; idx++) {
 		QLayoutItem *item = programLayout->itemAt(idx);
 		if (!item)
@@ -632,7 +632,7 @@ void OBSBasic::AddQuickTransition()
 	quickTransitions.emplace_back(transition, duration->value(), id);
 	AddQuickTransitionId(id);
 
-	int idx = quickTransitions.size() - 1;
+	int idx = (int)quickTransitions.size() - 1;
 	AddQuickTransitionHotkey(&quickTransitions[idx]);
 }
 
@@ -724,6 +724,7 @@ void OBSBasic::SetPreviewProgramMode(bool enabled)
 	if (IsPreviewProgramMode() == enabled)
 		return;
 
+	ui->modeSwitch->setChecked(enabled);
 	os_atomic_set_bool(&previewProgramMode, enabled);
 
 	if (IsPreviewProgramMode()) {
@@ -768,7 +769,7 @@ void OBSBasic::SetPreviewProgramMode(bool enabled)
 			actualProgramScene = GetCurrentSceneSource();
 		else
 			SetCurrentScene(actualProgramScene);
-		TransitionToScene(actualProgramScene);
+		TransitionToScene(actualProgramScene, true);
 
 		delete programOptions;
 		delete program;
@@ -793,6 +794,8 @@ void OBSBasic::SetPreviewProgramMode(bool enabled)
 		blog(LOG_INFO, "-----------------------------"
 				"-------------------");
 	}
+
+	UpdateTitleBar();
 }
 
 void OBSBasic::RenderProgram(void *data, uint32_t cx, uint32_t cy)

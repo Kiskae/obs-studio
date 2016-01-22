@@ -3838,7 +3838,11 @@ void OBSBasic::UpdateTitleBar()
 	const char *sceneCollection = config_get_string(App()->GlobalConfig(),
 			"Basic", "SceneCollection");
 
-	name << "OBS " << App()->GetVersionString();
+	name << "OBS ";
+	if (previewProgramMode)
+		name << "Studio ";
+
+	name << App()->GetVersionString();
 	name << " - " << Str("TitleBar.Profile") << ": " << profile;
 	name << " - " << Str("TitleBar.Scenes") << ": " << sceneCollection;
 

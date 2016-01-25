@@ -29,6 +29,7 @@ elseif("${CMAKE_SYSTEM_NAME}" MATCHES "FreeBSD")
 	add_subdirectory(linux-jack)
 endif()
 
+add_subdirectory(portaudio)
 add_subdirectory(image-source)
 add_subdirectory(obs-x264)
 add_subdirectory(obs-libfdk)
